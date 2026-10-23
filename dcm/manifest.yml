@@ -6,17 +6,17 @@ targets:
   DEV:
     account_identifier: SFSENORTHAMERICA-ADWASSERMAN_AWS1
     project_name: 'DCM_ADMIN.PROJECTS.SDLC_DEMO_DEV'
-    project_owner: SYSADMIN
+    project_owner: DCM_DEPLOYER
     templating_config: 'DEV'
   QA:
     account_identifier: SFSENORTHAMERICA-ADWASSERMAN_AWS1
     project_name: 'DCM_ADMIN.PROJECTS.SDLC_DEMO_QA'
-    project_owner: SYSADMIN
+    project_owner: DCM_DEPLOYER
     templating_config: 'QA'
   PROD:
     account_identifier: SFSENORTHAMERICA-ADWASSERMAN_AWS1
     project_name: 'DCM_ADMIN.PROJECTS.SDLC_DEMO_PROD'
-    project_owner: SYSADMIN
+    project_owner: DCM_DEPLOYER
     templating_config: 'PROD'
 
 templating:

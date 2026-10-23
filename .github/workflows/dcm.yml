@@ -1,0 +1,115 @@
+name: DCM
+
+# feature/* --PR--> dev  : PLAN vs DEV  | merge: DEPLOY DEV (no gate)
+# dev       --PR--> qa   : PLAN vs QA   | merge: DEPLOY QA (qa environment approval)
+# qa        --PR--> main : PLAN vs PROD | merge: DEPLOY PROD (prod environment approval)
+
+on:
+  pull_request:
+    branches: [dev, qa, main]
+    paths: ['dcm/**', '.github/workflows/dcm.yml']
+  push:
+    branches: [dev, qa, main]
+    paths: ['dcm/**', '.github/workflows/dcm.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: dcm-${{ github.base_ref || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_ACCOUNT }}
+  SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_USER }}
+  SNOWFLAKE_AUTHENTICATOR: SNOWFLAKE_JWT
+  SNOWFLAKE_PRIVATE_KEY_RAW: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_RAW }}
+  SNOWFLAKE_ROLE: DCM_DEPLOYER
+  SNOWFLAKE_WAREHOUSE: COMPUTE_WH
+
+jobs:
+  plan:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dcm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Snowflake CLI
+        uses: snowflakedb/snowflake-actions@v3
+
+      - name: Resolve target
+        id: target
+        run: |
+          case "${{ github.base_ref }}" in
+            dev)  echo "name=DEV"  >> "$GITHUB_OUTPUT" ;;
+            qa)   echo "name=QA"   >> "$GITHUB_OUTPUT" ;;
+            main) echo "name=PROD" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Test connection
+        run: snow connection test -x
+
+      - name: DCM plan
+        run: snow dcm plan --target ${{ steps.target.outputs.name }} --save-output -x
+
+      - name: Summarize plan
+        if: always()
+        run: |
+          f=out/plan/plan_result.json
+          {
+            echo "### DCM plan: ${{ steps.target.outputs.name }}"
+            if [ -f "$f" ]; then
+              echo
+              echo "| Action | Type | Object |"
+              echo "|---|---|---|"
+              jq -r '.changeset[]? | "| \(.type) | \(.object_id.domain) | `\(.object_id.fqn)` |"' "$f"
+              n=$(jq '[.changeset[]?] | length' "$f")
+              [ "$n" = "0" ] && echo "| - | - | No changes |"
+              d=$(jq '[.changeset[]? | select(.type=="DROP")] | length' "$f")
+              [ "$d" != "0" ] && echo && echo "**Warning: $d DROP operation(s). Data in dropped objects is lost.**"
+            else
+              echo "Plan failed; see job log."
+            fi
+          } > plan_summary.md
+          cat plan_summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment plan on PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr comment ${{ github.event.pull_request.number }} --body-file plan_summary.md
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # dev has no environment (no gate); qa and prod require reviewer approval
+    environment: ${{ github.ref_name == 'qa' && 'qa' || github.ref_name == 'main' && 'prod' || '' }}
+    defaults:
+      run:
+        working-directory: dcm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Snowflake CLI
+        uses: snowflakedb/snowflake-actions@v3
+
+      - name: Resolve target
+        id: target
+        run: |
+          case "${{ github.ref_name }}" in
+            dev)  echo "name=DEV"  >> "$GITHUB_OUTPUT" ;;
+            qa)   echo "name=QA"   >> "$GITHUB_OUTPUT" ;;
+            main) echo "name=PROD" >> "$GITHUB_OUTPUT" ;;
+            *)    echo "Unsupported branch ${{ github.ref_name }}"; exit 1 ;;
+          esac
+
+      - name: DCM plan
+        run: snow dcm plan --target ${{ steps.target.outputs.name }} --save-output -x
+
+      - name: DCM deploy
+        run: snow dcm deploy --target ${{ steps.target.outputs.name }} --alias "${{ github.ref_name }}-${GITHUB_SHA::7}" -x
