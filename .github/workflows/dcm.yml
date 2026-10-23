@@ -60,10 +60,12 @@ jobs:
       - name: Summarize plan
         if: always()
         run: |
+          find out -type f 2>/dev/null || true
           f=out/plan/plan_result.json
+          [ -f "$f" ] || f=$(find out -type f -name '*.json' 2>/dev/null | xargs -r grep -l '"changeset"' | head -1)
           {
             echo "### DCM plan: ${{ steps.target.outputs.name }}"
-            if [ -f "$f" ]; then
+            if [ -n "$f" ] && [ -f "$f" ]; then
               echo
               echo "| Action | Type | Object |"
               echo "|---|---|---|"
