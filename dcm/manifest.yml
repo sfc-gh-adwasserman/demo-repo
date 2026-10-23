@@ -1,0 +1,9 @@
+manifest_version: 2
+type: DCM_PROJECT
+default_target: 'DEV'
+
+targets:
+  DEV:
+    account_identifier: SFSENORTHAMERICA-ADWASSERMAN_AWS1
+    project_name: 'DCM_ADMIN.PROJECTS.SDLC_DEMO_PROJECT'
+    project_owner: SYSADMIN
