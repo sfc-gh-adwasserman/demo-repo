@@ -5,5 +5,28 @@ default_target: 'DEV'
 targets:
   DEV:
     account_identifier: SFSENORTHAMERICA-ADWASSERMAN_AWS1
-    project_name: 'DCM_ADMIN.PROJECTS.SDLC_DEMO_PROJECT'
+    project_name: 'DCM_ADMIN.PROJECTS.SDLC_DEMO_DEV'
     project_owner: SYSADMIN
+    templating_config: 'DEV'
+  QA:
+    account_identifier: SFSENORTHAMERICA-ADWASSERMAN_AWS1
+    project_name: 'DCM_ADMIN.PROJECTS.SDLC_DEMO_QA'
+    project_owner: SYSADMIN
+    templating_config: 'QA'
+  PROD:
+    account_identifier: SFSENORTHAMERICA-ADWASSERMAN_AWS1
+    project_name: 'DCM_ADMIN.PROJECTS.SDLC_DEMO_PROD'
+    project_owner: SYSADMIN
+    templating_config: 'PROD'
+
+templating:
+  defaults:
+    env_suffix: ''
+    wh_size: 'XSMALL'
+  configurations:
+    DEV:
+      env_suffix: '_DEV'
+    QA:
+      env_suffix: '_QA'
+    PROD:
+      env_suffix: ''
